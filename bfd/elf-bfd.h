@@ -1789,6 +1789,14 @@ struct output_elf_obj_tdata
     asection *sec;
   } build_id;
 
+  /* Data for .nx-module-name. */
+  struct
+  {
+    bfd_boolean (*after_write_object_contents) (bfd *);
+    const char *name;
+    asection *sec;
+  } nx_module_name;
+
   /* Records the result of `get_program_header_size'.  */
   bfd_size_type program_header_size;
 

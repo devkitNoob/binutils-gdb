@@ -192,6 +192,9 @@ static char *depaudit; /* colon (typically) separated list of libs */
 /* Style of .note.gnu.build-id section.  */
 static const char *emit_note_gnu_build_id;
 
+/* NX module name. */
+static const char *emit_nx_module_name;
+
 /* On Linux, it's possible to have different versions of the same
    shared library linked against different versions of libc.  The
    dynamic linker somehow tags which libc version to use in
@@ -1217,6 +1220,92 @@ setup_build_id (bfd *ibfd)
   return FALSE;
 }
 
+static bfd_boolean
+write_nx_module_name (bfd *abfd)
+{
+  struct elf_obj_tdata *t = elf_tdata (abfd);
+  const char *name;
+  asection *asec;
+  Elf_Internal_Shdr *i_shdr;
+  unsigned char *contents;
+  bfd_size_type size;
+  file_ptr position;
+
+  name = t->o->nx_module_name.name;
+  asec = t->o->nx_module_name.sec;
+  if (bfd_is_abs_section (asec->output_section))
+    {
+      einfo (_("%P: warning: .nx-module-name section discarded,"
+	       " --build-id ignored\n"));
+      return TRUE;
+    }
+  i_shdr = &elf_section_data (asec->output_section)->this_hdr;
+
+  if (i_shdr->contents == NULL)
+    {
+      if (asec->contents == NULL)
+	asec->contents = (unsigned char *) xmalloc (asec->size);
+      contents = asec->contents;
+    }
+  else
+    contents = i_shdr->contents + asec->output_offset;
+
+  size = asec->size;
+  bfd_h_put_32 (abfd, 0, &contents[0]);
+  bfd_h_put_32 (abfd, size - 9, &contents[4]);
+  memcpy (&contents[8], name, size - 9);
+  contents[size - 1] = 0; /* ensure null termination for AMS */
+
+  position = i_shdr->sh_offset + asec->output_offset;
+
+  return (bfd_seek (abfd, position, SEEK_SET) == 0
+	  && bfd_bwrite (contents, size, abfd) == size);
+}
+
+/* Make .nx-module-name section, and set up elf_tdata->nx_module_name.  */
+
+static bfd_boolean
+setup_nx_module_name (bfd *ibfd, bfd *obfd)
+{
+  asection *s;
+  bfd_size_type size;
+  flagword flags;
+
+  if (emit_nx_module_name[0] == '\0')
+    {
+      /* Extract the basename of the output bfd and use it as the module name. */
+      char *dot_pos;
+      free ((char *) emit_nx_module_name);
+      emit_nx_module_name = (char *) lbasename (bfd_get_filename (obfd));
+      emit_nx_module_name = xstrdup (emit_nx_module_name);
+      dot_pos = strrchr (emit_nx_module_name, '.');
+      if (dot_pos != NULL)
+        {
+          /* Remove extension. */
+          *dot_pos = 0;
+        }
+    }
+
+  size = 8 + strlen(emit_nx_module_name) + 1; /* extra null terminator for AMS */
+  flags = (SEC_ALLOC | SEC_LOAD | SEC_IN_MEMORY
+	   | SEC_LINKER_CREATED | SEC_READONLY | SEC_DATA);
+  s = bfd_make_section_with_flags (ibfd, ".nx-module-name", flags);
+  if (s != NULL && bfd_set_section_alignment (ibfd, s, 4))
+    {
+      struct elf_obj_tdata *t = elf_tdata (link_info.output_bfd);
+      t->o->nx_module_name.after_write_object_contents = &write_nx_module_name;
+      t->o->nx_module_name.name = emit_nx_module_name;
+      t->o->nx_module_name.sec = s;
+      elf_section_type (s) = SHT_PROGBITS;
+      s->size = size;
+      return TRUE;
+    }
+
+  einfo (_("%P: warning: cannot create .nx-module-name section,"
+	   " --nx-module-name ignored\n"));
+  return FALSE;
+}
+
 /* This is called after all the input files have been opened.  */
 
 static void
@@ -1265,6 +1354,24 @@ gld${EMULATION_NAME}_after_open (void)
 	  free ((char *) emit_note_gnu_build_id);
 	  emit_note_gnu_build_id = NULL;
 	}
+    }
+
+  if (emit_nx_module_name != NULL)
+    {
+      /* Find an ELF input.  */
+      for (abfd = link_info.input_bfds;
+        abfd != (bfd *) NULL; abfd = abfd->link.next)
+        if (bfd_get_flavour (abfd) == bfd_target_elf_flavour
+            && bfd_count_sections (abfd) != 0
+            && !((lang_input_statement_type *) abfd->usrdata)->flags.just_syms)
+          break;
+
+      /* If there are no ELF input files do not try to create a .nx-module-name section. */
+      if (abfd == NULL || !setup_nx_module_name (abfd, link_info.output_bfd))
+        {
+          free ((char *) emit_nx_module_name);
+          emit_nx_module_name = NULL;
+        }
     }
 
   get_elf_backend_data (link_info.output_bfd)->setup_gnu_properties (&link_info);
@@ -2720,6 +2827,7 @@ enum elf_options
   OPTION_EXCLUDE_LIBS,
   OPTION_HASH_STYLE,
   OPTION_BUILD_ID,
+  OPTION_NX_MODULE_NAME,
   OPTION_AUDIT,
   OPTION_COMPRESS_DEBUG
 };
@@ -2750,6 +2858,7 @@ EOF
 fi
 fragment <<EOF
     {"build-id", optional_argument, NULL, OPTION_BUILD_ID},
+    {"nx-module-name", optional_argument, NULL, OPTION_NX_MODULE_NAME},
     {"compress-debug-sections", required_argument, NULL, OPTION_COMPRESS_DEBUG},
 EOF
 if test x"$GENERATE_SHLIB_SCRIPT" = xyes; then
@@ -2813,6 +2922,16 @@ gld${EMULATION_NAME}_handle_option (int optc)
       else
 	einfo (_("%F%P: invalid --compress-debug-sections option: \`%s'\n"),
 	       optarg);
+      break;
+    case OPTION_NX_MODULE_NAME:
+      if (emit_nx_module_name != NULL)
+        {
+          free ((char *) emit_nx_module_name);
+          emit_nx_module_name = NULL;
+        }
+      if (optarg == NULL)
+        optarg = "";
+      emit_nx_module_name = xstrdup (optarg);
       break;
 EOF
 
