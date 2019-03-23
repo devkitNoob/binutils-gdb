@@ -1509,19 +1509,23 @@ ens32knbsd.c:	$(srcdir)/emulparams/ns32knbsd.sh \
   $(srcdir)/scripttempl/aout.sc ${GEN_DEPENDS}
 
 eaarch64elf.c: $(srcdir)/emulparams/aarch64elf.sh \
-  $(ELF_DEPS) $(srcdir)/emultempl/aarch64elf.em \
+  $(srcdir)/emulparams/dynamic_undefined_weak.sh \
+  $(ELF_DEPS) $(srcdir)/emultempl/aarch64elf.em ldemul-list.h \
   $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
 
 eaarch64elf32.c: $(srcdir)/emulparams/aarch64elf32.sh \
-  $(ELF_DEPS) $(srcdir)/emultempl/aarch64elf.em \
+  $(srcdir)/emulparams/dynamic_undefined_weak.sh \
+  $(ELF_DEPS) $(srcdir)/emultempl/aarch64elf.em ldemul-list.h \
   $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
 
 eaarch64elfb.c: $(srcdir)/emulparams/aarch64elfb.sh $(srcdir)/emulparams/aarch64elf.sh \
-  $(ELF_DEPS) $(srcdir)/emultempl/aarch64elf.em \
+  $(srcdir)/emulparams/dynamic_undefined_weak.sh \
+  $(ELF_DEPS) $(srcdir)/emultempl/aarch64elf.em ldemul-list.h \
   $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
 
 eaarch64elf32b.c: $(srcdir)/emulparams/aarch64elf32b.sh $(srcdir)/emulparams/aarch64elf32.sh \
-  $(ELF_DEPS) $(srcdir)/emultempl/aarch64elf.em \
+  $(srcdir)/emulparams/dynamic_undefined_weak.sh \
+  $(ELF_DEPS) $(srcdir)/emultempl/aarch64elf.em ldemul-list.h \
   $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
 
 eaarch64cloudabi.c: $(srcdir)/emulparams/aarch64cloudabi.sh \
