@@ -684,6 +684,7 @@ ALL_TARGET_OBS = \
 	arch/arm-linux.o \
 	arch/i386.o \
 	arch/ppc-linux-common.o \
+	arm-3ds-tdep.o \
 	arm-bsd-tdep.o \
 	arm-fbsd-tdep.o \
 	arm-linux-tdep.o \
@@ -2213,6 +2214,7 @@ ALLDEPFILES = \
 	amd64-tdep.c \
 	arc-tdep.c \
 	arm.c \
+	arm-3ds-tdep.c \
 	arm-bsd-tdep.c \
 	arm-fbsd-nat.c \
 	arm-fbsd-tdep.c \
