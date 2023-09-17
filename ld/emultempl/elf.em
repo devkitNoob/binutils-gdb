@@ -574,6 +574,7 @@ enum elf_options
   OPTION_EXCLUDE_LIBS,
   OPTION_HASH_STYLE,
   OPTION_BUILD_ID,
+  OPTION_NX_MODULE_NAME,
   OPTION_PACKAGE_METADATA,
   OPTION_AUDIT,
   OPTION_COMPRESS_DEBUG
@@ -605,6 +606,7 @@ EOF
 fi
 fragment <<EOF
     {"build-id", optional_argument, NULL, OPTION_BUILD_ID},
+    {"nx-module-name", optional_argument, NULL, OPTION_NX_MODULE_NAME},
     {"package-metadata", optional_argument, NULL, OPTION_PACKAGE_METADATA},
     {"compress-debug-sections", required_argument, NULL, OPTION_COMPRESS_DEBUG},
 EOF
@@ -674,6 +676,16 @@ gld${EMULATION_NAME}_handle_option (int optc)
       if (config.compress_debug == COMPRESS_UNKNOWN)
 	einfo (_("%F%P: invalid --compress-debug-sections option: \`%s'\n"),
 	       optarg);
+      break;
+    case OPTION_NX_MODULE_NAME:
+      if (ldelf_emit_nx_module_name != NULL)
+        {
+          free ((char *) ldelf_emit_nx_module_name);
+          ldelf_emit_nx_module_name = NULL;
+        }
+      if (optarg == NULL)
+        optarg = "";
+      ldelf_emit_nx_module_name = xstrdup (optarg);
       break;
 EOF
 
